@@ -1,0 +1,197 @@
+ui:
+  background: true
+  escClose: false
+  closeDied: false
+
+  packetHandler:
+    # 服务端下发初始化数据：mode / serverName / subtitle
+    init: |-
+      var.mode = packet['mode']
+      var.serverName = packet['serverName']
+      var.subtitleText = packet['subtitle']
+      var.feedbackText = ''
+      var.submitting = false
+      val.inputs.actions['init'](var.mode)
+      self.escClose = var.mode == 'change'
+    # 失败反馈：显示消息并抖动
+    feedback: |-
+      var.feedbackText = packet['message']
+      var.submitting = false
+      ok = packet['ok']
+      if(ok == false || ok == 'false'){
+        var.shakeDx.trigger()
+      }
+    # 成功反馈：显示消息并稍后优雅关闭
+    success: |-
+      var.feedbackText = packet['message']
+      var.submitting = true
+      async {
+        Thread.sleep(650)
+        self.close()
+      }
+
+  action:
+    load: |-
+      var.mode = 'login'
+      var.serverName = ''
+      var.subtitleText = ''
+      var.feedbackText = ''
+      var.submitting = false
+      var.shakeDx = Shake(0, 8, 350, 20, 5, 0.78)
+
+controls:
+  root:
+    type: adaptive
+    attribute:
+      point: ~middle_center
+      width: "1920"
+      height: "1080"
+    children:
+
+      panel:
+        type: texture
+        attribute:
+          point: ~middle_center
+          width: 460
+          height: 440
+          normal: ~Frosted:28;16,20,32,220
+          shape: ~round_rect
+          radius: 14
+          x: var.shakeDx.get()
+        effect:
+          stroke: { width: 1, color: ~70,120,200,60 }
+        children:
+
+          top_line:
+            type: texture
+            attribute: { x: 30, y: 0, width: 400, height: 2, normal: ~80,140,220,140 }
+            effect:
+              flow: { color: ~140,200,255, speed: 0.4, width: 0.2, angleDeg: 0, mode: 0 }
+
+          title:
+            type: text
+            attribute:
+              x: 230
+              y: 54
+              center: true
+              fontSize: 50
+              shadow: true
+              texts:
+                - "'&f&l' + var.serverName"
+
+          subtitle:
+            type: text
+            attribute:
+              x: 230
+              y: 92
+              center: true
+              fontSize: 32
+              texts:
+                - "var.subtitleText"
+
+          divider:
+            type: texture
+            attribute: { x: 30, y: 122, width: 400, height: 1, normal: ~70,120,200,40 }
+
+          inputs:
+            type: vstack
+            val: inputs
+            attribute:
+              y: 140
+              width: 460
+              spaceBetween: 20
+            action:
+              init: |-
+                switch(args[0]){
+                  case 'login'{
+                    self['pwd1'].emptyText = '&8输入登录密码'
+                  }
+                  case 'register'{
+                    self['pwd1'].emptyText = '&8设置登录密码'
+                    self['pwd1'].copy('pwd2').emptyText = '&8再次输入密码'
+                  }
+                  case 'change'{
+                    self['pwd1'].emptyText = '&8输入原密码'
+                    self['pwd1'].copy('pwd2').emptyText = '&8输入新密码'
+                    self['pwd1'].copy('pwd3').emptyText = '&8再次输入新密码'
+                  }
+                }
+            children:
+              pwd1:
+                type: textbox
+                attribute:
+                  x: 30
+                  width: 400
+                  height: 30
+                  fontSize: 38
+                  passwordChar: ~*
+                  emptyText: ~&8输入密码
+                  background: ~8,12,22,200
+                  shape: ~round_rect
+                  radius: 6
+                  cursorColor: ~140,200,255,255
+                effect:
+                  stroke: { width: 1, color: ~70,120,200,40 }
+
+          feedback_text:
+            type: text
+            attribute:
+              x: 230
+              y: 308
+              center: true
+              fontSize: 32
+              shadow: true
+              texts:
+                - "var.feedbackText"
+
+          btn:
+            type: texture
+            attribute:
+              x: 30
+              y: 344
+              width: 400
+              height: 38
+              normal: ~30,65,130,200
+              hover: ~45,85,160,220
+              shape: ~round_rect
+              radius: 8
+              fontSize: 32
+              center: true
+              middleScale: 1
+              texts:
+                - ~&f确认
+            effect:
+              stroke: { width: 1, color: ~90,150,220,100 }
+            action:
+              enter: "self.middleScale = Lerp(self.middleScale, 1.03, 150)"
+              leave: "self.middleScale = Lerp(self.middleScale, 1, 150)"
+              click: |-
+                if(var.submitting == true){
+                  return
+                }
+                var.submitting = true
+                var.feedbackText = ''
+                m = var.mode
+                p1 = val.inputs['pwd1'].getContent()
+                if(m == 'login'){
+                  Packet.send('login', p1)
+                }
+                if(m == 'register'){
+                  p2 = val.inputs['pwd2'].getContent()
+                  Packet.send('register', p1, p2)
+                }
+                if(m == 'change'){
+                  p2 = val.inputs['pwd2'].getContent()
+                  p3 = val.inputs['pwd3'].getContent()
+                  Packet.send('change', p1, p2, p3)
+                }
+
+          footer:
+            type: text
+            attribute:
+              x: 230
+              y: 410
+              center: true
+              fontSize: 32
+              texts:
+                - ~&8ArcartX · AuthMe 登录
